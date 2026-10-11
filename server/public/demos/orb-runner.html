@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Orb Runner — demo</title>
+<style>html,body{margin:0;background:#07080c;color:#e8eaf2;font-family:system-ui,sans-serif;overflow:hidden}canvas{display:block;margin:0 auto;background:radial-gradient(circle at 50% 30%,#14182b,#07080c)}#hud{position:fixed;top:10px;left:14px;font-size:14px;opacity:.9}</style></head>
+<body><div id="hud">Move with mouse / touch · collect orbs, dodge red · <b id="s">0</b> pts · <b id="t">30</b>s</div><canvas id="c"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H;function rs(){W=c.width=Math.min(innerWidth,900);H=c.height=innerHeight}rs();addEventListener('resize',rs);
+let px=W/2,py=H-80,orbs=[],bad=[],score=0,time=30,over=false;
+const mv=e=>{const p=e.touches?e.touches[0]:e,r=c.getBoundingClientRect();px=p.clientX-r.left;py=p.clientY-r.top};c.addEventListener('mousemove',mv);c.addEventListener('touchmove',mv);
+setInterval(()=>{if(!over){orbs.push({x:Math.random()*W,y:-10,v:1.5+Math.random()*2});if(Math.random()<.6)bad.push({x:Math.random()*W,y:-10,v:2+Math.random()*3})}},350);
+setInterval(()=>{if(over)return;time--;document.getElementById('t').textContent=time;parent.postMessage({gamevest:'progress',seconds:30-time},'*');if(time<=0){over=true;parent.postMessage({gamevest:'complete',score},'*')}},1000);
+function loop(){x.clearRect(0,0,W,H);
+for(const o of orbs){o.y+=o.v;x.fillStyle='#7cf0c3';x.beginPath();x.arc(o.x,o.y,9,0,7);x.fill();if(Math.hypot(o.x-px,o.y-py)<22){score+=10;o.y=H+99;document.getElementById('s').textContent=score}}
+for(const b of bad){b.y+=b.v;x.fillStyle='#ff5d73';x.beginPath();x.arc(b.x,b.y,11,0,7);x.fill();if(!over&&Math.hypot(b.x-px,b.y-py)<24){score=Math.max(0,score-15);b.y=H+99;document.getElementById('s').textContent=score}}
+orbs=orbs.filter(o=>o.y<H+50);bad=bad.filter(b=>b.y<H+50);
+x.fillStyle='#8b7bff';x.beginPath();x.arc(px,py,14,0,7);x.fill();
+if(over){x.fillStyle='#fff';x.font='28px system-ui';x.textAlign='center';x.fillText('Demo complete — score '+score,W/2,H/2)}
+requestAnimationFrame(loop)}loop();
+</script></body></html>

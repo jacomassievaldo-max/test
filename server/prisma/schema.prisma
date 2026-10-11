@@ -1,0 +1,698 @@
+// GameVest data model. Money is always stored as integer cents (BRL by default).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLAYER
+  DEVELOPER
+  PUBLISHER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum GameStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+  SUSPENDED
+}
+
+enum Stage {
+  CONCEPT
+  PROTOTYPE
+  ALPHA
+  BETA
+  EARLY_ACCESS
+  RELEASED
+}
+
+enum MediaType {
+  SCREENSHOT
+  TRAILER
+  COVER
+  BANNER
+}
+
+enum DemoKind {
+  WEBGL
+  DOWNLOAD
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  FUNDED
+  ENDED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum RewardKind {
+  SUPPORT
+  GAME_COPY
+  BUNDLE
+  EARLY_ACCESS
+  FOUNDER
+}
+
+enum TxKind {
+  BACKING
+  PURCHASE
+  REFUND
+}
+
+enum TxStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum PurchaseKind {
+  GAME
+  DLC
+  PRE_ORDER
+  EARLY_ACCESS
+}
+
+enum RefundStatus {
+  REQUESTED
+  AUTO_APPROVED
+  UNDER_REVIEW
+  APPROVED
+  DENIED
+  PAID
+}
+
+enum RefundScope {
+  RELEASED_GAME
+  PRE_ORDER
+  EARLY_ACCESS
+  CROWDFUNDING
+  DLC
+  REWARD
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED_USER
+  RESOLVED_DEV
+  CLOSED
+}
+
+enum ReportReason {
+  SCAM
+  STOLEN_CONTENT
+  FAKE_DEVELOPER
+  MISLEADING
+  ABANDONED
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
+enum VerificationStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  NOT_APPLICABLE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role       @default(PLAYER)
+  status       UserStatus @default(ACTIVE)
+  flagged      Boolean    @default(false) // antifraud: excluded from ranking signals
+  tokenVersion Int        @default(0)
+  createdAt    DateTime   @default(now())
+  lastIp       String?
+
+  player    PlayerProfile?
+  developer DeveloperProfile?
+  publisher PublisherProfile?
+  wishlist  Wishlist[]
+  follows   Follow[]
+  reviews   Review[]
+  comments  Comment[]
+  library   Library[]
+  backings  Backing[]
+  purchases Purchase[]
+  txs       Transaction[]
+  refunds   Refund[]
+  disputes  Dispute[]
+  reports   Report[]          @relation("Reporter")
+  notifs    Notification[]
+  sessions  DemoSession[]
+}
+
+model PlayerProfile {
+  userId      String  @id
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  bio         String?
+  country     String?
+  avatarUrl   String?
+}
+
+model Studio {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  country     String?
+  description String?
+  website     String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+
+  members      DeveloperProfile[]
+  games        Game[]
+  verification Verification?
+  reputation   DeveloperReputation?
+  reports      Report[]
+  contacts     ContactRequest[]
+}
+
+model DeveloperProfile {
+  userId   String  @id
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studioId String?
+  studio   Studio? @relation(fields: [studioId], references: [id])
+  bio      String?
+}
+
+model PublisherProfile {
+  userId   String           @id
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company  String
+  website  String?
+  contacts ContactRequest[]
+}
+
+model ContactRequest {
+  id          String           @id @default(cuid())
+  publisherId String
+  publisher   PublisherProfile @relation(fields: [publisherId], references: [userId])
+  studioId    String
+  studio      Studio           @relation(fields: [studioId], references: [id])
+  gameId      String?
+  message     String
+  createdAt   DateTime         @default(now())
+}
+
+model Game {
+  id               String     @id @default(cuid())
+  slug             String     @unique
+  title            String
+  tagline          String?
+  description      String
+  genres           String[]
+  tags             String[]
+  platforms        String[]
+  stage            Stage      @default(CONCEPT)
+  progress         Int        @default(0) // 0-100 development progress
+  status           GameStatus @default(DRAFT)
+  priceCents       Int        @default(0)
+  coverUrl         String?
+  coverSeed        Int        @default(0)
+  trailerUrl       String?
+  ageRating        String?
+  publisherName    String?
+  releaseDate      DateTime?
+  estimatedRelease String?
+  featured         Boolean    @default(false)
+  sponsored        Boolean    @default(false)
+  protectedBy      Boolean    @default(false) // GameVest Protection badge (admin-granted)
+  rejectionNote    String?
+  lastUpdateAt     DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  studioId         String
+  studio           Studio     @relation(fields: [studioId], references: [id])
+
+  builds       GameBuild[]
+  media        GameMedia[]
+  demos        GameDemo[]
+  requirements GameRequirement[]
+  campaigns    Campaign[]
+  purchases    Purchase[]
+  library      Library[]
+  wishlist     Wishlist[]
+  follows      Follow[]
+  reviews      Review[]
+  comments     Comment[]
+  updates      GameUpdate[]
+  analytics    GameAnalytics[]
+  score        GameVestScore?
+  reports      Report[]
+  sessions     DemoSession[]
+  snapshots    TrendingSnapshot[]
+  dlcs         Dlc[]
+
+  @@index([status, stage])
+}
+
+model Dlc {
+  id         String @id @default(cuid())
+  gameId     String
+  game       Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  title      String
+  priceCents Int
+}
+
+model GameBuild {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  version   String
+  platform  String
+  url       String?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model GameMedia {
+  id      String    @id @default(cuid())
+  gameId  String
+  game    Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  type    MediaType
+  url     String
+  caption String?
+  order   Int       @default(0)
+}
+
+model GameDemo {
+  id      String   @id @default(cuid())
+  gameId  String
+  game    Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  kind    DemoKind
+  url     String
+  version String   @default("0.1")
+  active  Boolean  @default(true)
+}
+
+model GameRequirement {
+  id      String  @id @default(cuid())
+  gameId  String
+  game    Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  tier    String // MIN | REC
+  os      String?
+  cpu     String?
+  gpu     String?
+  ram     String?
+  storage String?
+}
+
+model Campaign {
+  id            String         @id @default(cuid())
+  gameId        String
+  game          Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  title         String
+  summary       String?
+  goalCents     Int
+  raisedCents   Int            @default(0)
+  backersCount  Int            @default(0)
+  endsAt        DateTime
+  status        CampaignStatus @default(DRAFT)
+  termsVersion  String         @default("2026-01")
+  termsText     String?
+  adminApproved Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+
+  milestones CampaignMilestone[]
+  rewards    Reward[]
+  backings   Backing[]
+}
+
+model CampaignMilestone {
+  id         String          @id @default(cuid())
+  campaignId String
+  campaign   Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  title      String
+  order      Int
+  status     MilestoneStatus @default(PENDING)
+}
+
+model Reward {
+  id          String     @id @default(cuid())
+  campaignId  String
+  campaign    Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  priceCents  Int
+  kind        RewardKind @default(SUPPORT)
+  limit       Int? // null = unlimited
+  claimed     Int        @default(0)
+  backings    Backing[]
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  kind        TxKind
+  amountCents Int
+  currency    String    @default("BRL")
+  provider    String
+  providerRef String?   @unique
+  status      TxStatus  @default(PENDING)
+  ip          String?
+  meta        Json?
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+
+  backing  Backing?
+  purchase Purchase?
+  refunds  Refund[]
+}
+
+model Backing {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id])
+  campaignId      String
+  campaign        Campaign       @relation(fields: [campaignId], references: [id])
+  rewardId        String?
+  reward          Reward?        @relation(fields: [rewardId], references: [id])
+  amountCents     Int
+  transactionId   String         @unique
+  transaction     Transaction    @relation(fields: [transactionId], references: [id])
+  termsVersion    String
+  termsAcceptedAt DateTime
+  deliveryStatus  DeliveryStatus @default(PENDING)
+  counted         Boolean        @default(false) // already added to campaign totals
+  createdAt       DateTime       @default(now())
+  refunds         Refund[]
+  disputes        Dispute[]
+}
+
+model Purchase {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  gameId          String
+  game            Game         @relation(fields: [gameId], references: [id])
+  kind            PurchaseKind @default(GAME)
+  itemTitle       String
+  amountCents     Int
+  transactionId   String       @unique
+  transaction     Transaction  @relation(fields: [transactionId], references: [id])
+  termsVersion    String
+  termsAcceptedAt DateTime
+  commissionCents Int          @default(0)
+  createdAt       DateTime     @default(now())
+  refunds         Refund[]
+  disputes        Dispute[]
+}
+
+model Refund {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  scope         RefundScope
+  purchaseId    String?
+  purchase      Purchase?    @relation(fields: [purchaseId], references: [id])
+  backingId     String?
+  backing       Backing?     @relation(fields: [backingId], references: [id])
+  transactionId String
+  transaction   Transaction  @relation(fields: [transactionId], references: [id])
+  reason        String
+  details       String?
+  amountCents   Int
+  status        RefundStatus @default(REQUESTED)
+  decisionNote  String?
+  decidedBy     String?
+  createdAt     DateTime     @default(now())
+  decidedAt     DateTime?
+}
+
+model Dispute {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  purchaseId String?
+  purchase   Purchase?     @relation(fields: [purchaseId], references: [id])
+  backingId  String?
+  backing    Backing?      @relation(fields: [backingId], references: [id])
+  subject    String
+  body       String
+  status     DisputeStatus @default(OPEN)
+  createdAt  DateTime      @default(now())
+}
+
+// Admin-configurable refund rules per scope. Shown to the user BEFORE purchase.
+model RefundPolicy {
+  scope              RefundScope @id
+  windowDays         Int
+  maxPlaytimeMinutes Int?
+  autoApprove        Boolean     @default(false)
+  refundable         Boolean     @default(true)
+  summary            String
+}
+
+model Library {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  gameId          String
+  game            Game     @relation(fields: [gameId], references: [id])
+  source          String // PURCHASE | BACKING | DEMO
+  version         String?
+  acquiredAt      DateTime @default(now())
+  revoked         Boolean  @default(false)
+  playtimeMinutes Int      @default(0)
+
+  @@unique([userId, gameId, source])
+}
+
+model Wishlist {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, gameId])
+}
+
+model Follow {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, gameId])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  rating      Int
+  recommended Boolean
+  body        String
+  verified    Boolean  @default(false) // reviewer played demo / owns the game
+  hidden      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, gameId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  parentId  String?
+  body      String
+  hidden    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model GameUpdate {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model DemoSession {
+  id          String        @id @default(cuid())
+  gameId      String
+  game        Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
+  startedAt   DateTime      @default(now())
+  durationSec Int           @default(0)
+  completed   Boolean       @default(false)
+  feedback    DemoFeedback?
+}
+
+// Developer sees only aggregates; userId is never exposed through the API.
+model DemoFeedback {
+  id             String      @id @default(cuid())
+  sessionId      String      @unique
+  session        DemoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  gameId         String
+  rating         Int
+  wouldPlayAgain Boolean
+  wouldBuy       Boolean
+  priceCents     Int?
+  improve        String?
+  createdAt      DateTime    @default(now())
+
+  @@index([gameId])
+}
+
+model GameAnalytics {
+  id               String   @id @default(cuid())
+  gameId           String
+  game             Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  date             DateTime @db.Date
+  visitors         Int      @default(0)
+  players          Int      @default(0)
+  wishlists        Int      @default(0)
+  follows          Int      @default(0)
+  backers          Int      @default(0)
+  purchases        Int      @default(0)
+  fundingCents     Int      @default(0)
+  salesCents       Int      @default(0)
+  avgPlaySec       Int      @default(0)
+  demoCompletions  Int      @default(0)
+  returningPlayers Int      @default(0)
+
+  @@unique([gameId, date])
+}
+
+model GameVestScore {
+  gameId      String   @id
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  total       Int
+  gameplay    Int
+  community   Int
+  growth      Int
+  funding     Int
+  development Int
+  label       String
+  computedAt  DateTime @default(now())
+}
+
+model TrendingSnapshot {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  weekStart DateTime @db.Date
+  rank      Int
+  points    Float
+
+  @@unique([gameId, weekStart])
+}
+
+model DeveloperReputation {
+  studioId           String   @id
+  studio             Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  score              Int
+  gamesReleased      Int
+  campaignsCompleted Int
+  positivePct        Int
+  computedAt         DateTime @default(now())
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
+  gameId     String?
+  game       Game?        @relation(fields: [gameId], references: [id])
+  studioId   String?
+  studio     Studio?      @relation(fields: [studioId], references: [id])
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model Verification {
+  id          String             @id @default(cuid())
+  studioId    String             @unique
+  studio      Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  status      VerificationStatus @default(PENDING)
+  legalName   String?
+  document    String? // masked identifier supplied by the responsible person
+  payoutInfo  String? // reference only; real bank data lives with the payment provider
+  evidence    String?
+  notes       String?
+  reviewedBy  String?
+  submittedAt DateTime           @default(now())
+  reviewedAt  DateTime?
+}
+
+// Append-only security/fraud signal log (login failures, suspicious payments, ranking abuse, ...)
+model SecurityLog {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  ip        String?
+  detail    String?
+  severity  String   @default("info")
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+}
