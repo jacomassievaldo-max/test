@@ -58,6 +58,19 @@ function Updates({ g, reload }) {
   );
 }
 
+function Backers({ campaignId }) {
+  const [rows, setRows] = useState(null); const [msg, run] = useAction();
+  const load = useCallback(() => api.get(`/dev/campaigns/${campaignId}/backers`).then((r) => setRows(r.data.backers)), [campaignId]);
+  useEffect(() => { load(); }, [load]);
+  if (!rows) return null;
+  return (
+    <div><div className="label">Backers & reward delivery ({rows.length})</div>{msg && <Alert tone={msg.t}>{msg.m}</Alert>}
+      <div className="max-h-64 divide-y divide-ink-700 overflow-y-auto rounded-xl bg-ink-900">{rows.length === 0 ? <p className="p-3 text-sm text-slate-500">No backers yet.</p> : rows.map((b) => (
+        <div key={b.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm"><span className="text-slate-300">{b.name} · {b.reward} · {money(b.amountCents)}</span>
+          {b.delivery === 'PENDING' ? <button className="btn-ghost !px-2.5 !py-1 !text-xs" onClick={() => run(async () => { await api.post(`/dev/backings/${b.id}/delivered`); await load(); }, 'Marked as delivered')}>Mark delivered</button> : <span className="text-xs text-slate-500">{b.delivery === 'DELIVERED' ? '✓ delivered' : '—'}</span>}</div>))}</div></div>
+  );
+}
+
 function CampaignSection({ g, reload }) {
   const [msg, run] = useAction(); const camp = g.campaigns[0];
   const [f, setF] = useState({ title: `Back ${g.title}`, summary: '', goal: 50000, days: 30, milestones: 'Prototype, Alpha, Beta, Release', termsText: '' });
@@ -76,6 +89,7 @@ function CampaignSection({ g, reload }) {
           <div className="text-slate-400">{money(camp.raisedCents)} / {money(camp.goalCents)} · {camp.backersCount} backers · ends {new Date(camp.endsAt).toLocaleDateString()}</div>
           <ul className="space-y-1">{camp.rewards.map((r) => <li key={r.id} className="text-slate-300">{r.title} — {money(r.priceCents)} ({r.claimed}{r.limit ? `/${r.limit}` : ''} claimed)</li>)}</ul>
           {camp.milestones.length > 0 && <div><div className="label">Milestones</div><div className="space-y-2">{camp.milestones.map((m) => <div key={m.id} className="flex items-center justify-between gap-2"><span className="text-white">{m.title}</span><select className="input !w-auto !py-1.5" value={m.status} onChange={(e) => run(async () => { await api.put(`/dev/campaigns/${camp.id}/milestones/${m.id}`, { status: e.target.value }); await reload(); }, 'Milestone updated')}><option value="PENDING">Pending</option><option value="IN_PROGRESS">In progress</option><option value="DONE">Done</option></select></div>)}</div></div>}
+          {camp.adminApproved && <Backers campaignId={camp.id} />}
           {camp.status === 'DRAFT' && <button className="btn-primary" onClick={() => run(() => api.post(`/dev/campaigns/${camp.id}/submit`), 'Submitted for GameVest review')}>Submit campaign for review</button>}</div>
       ) : (
         <div className="space-y-4">

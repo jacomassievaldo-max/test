@@ -238,6 +238,24 @@ r.put('/campaigns/:id/milestones/:mid', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Backers of a campaign (names only) and reward delivery tracking
+r.get('/campaigns/:id/backers', wrap(async (req, res) => {
+  const c = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!c) throw httpError(404, 'Not found');
+  await ownGame(req, c.gameId);
+  const rows = await prisma.backing.findMany({ where: { campaignId: c.id, counted: true }, include: { user: { select: { name: true } }, reward: { select: { title: true, kind: true } } }, orderBy: { createdAt: 'desc' } });
+  res.json({ backers: rows.map((b) => ({ id: b.id, name: b.user.name, reward: b.reward?.title ?? 'Pledge', kind: b.reward?.kind, amountCents: b.amountCents, delivery: b.deliveryStatus, at: b.createdAt })) });
+}));
+r.post('/backings/:id/delivered', wrap(async (req, res) => {
+  const b = await prisma.backing.findUnique({ where: { id: req.params.id }, include: { campaign: true } });
+  if (!b) throw httpError(404, 'Not found');
+  await ownGame(req, b.campaign.gameId);
+  if (b.deliveryStatus === 'NOT_APPLICABLE') throw httpError(400, 'Nothing to deliver for this pledge');
+  await prisma.backing.update({ where: { id: b.id }, data: { deliveryStatus: 'DELIVERED' } });
+  await prisma.notification.create({ data: { userId: b.userId, type: 'delivery', title: 'Your reward was marked as delivered', link: '/library' } });
+  res.json({ ok: true });
+}));
+
 // ---- dashboard (aggregates only; player identities are never exposed) ----
 r.get('/dashboard', wrap(async (req, res) => {
   const sid = studioId(req);

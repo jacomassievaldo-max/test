@@ -9,6 +9,7 @@ import { computeTrending } from '../lib/trending.js';
 import { computeReputation } from '../lib/reputation.js';
 import { executeRefund } from './commerce.js';
 import { DEFAULT_POLICIES } from '../lib/policies.js';
+import { settleCampaigns } from '../lib/jobs.js';
 
 const r = Router();
 r.use(requireRole('ADMIN'));
@@ -163,7 +164,7 @@ r.put('/refund-policies/:scope', wrap(async (req, res) => {
 r.get('/security-logs', wrap(async (_req, res) => res.json({ logs: await prisma.securityLog.findMany({ orderBy: { createdAt: 'desc' }, take: 150 }) })));
 r.get('/audit', wrap(async (_req, res) => res.json({ actions: await prisma.adminAction.findMany({ orderBy: { createdAt: 'desc' }, take: 150 }) })));
 r.post('/jobs/recompute', wrap(async (req, res) => {
-  await recomputeAllScores(); const t = await computeTrending();
+  await settleCampaigns(); await recomputeAllScores(); const t = await computeTrending();
   const studios = await prisma.studio.findMany({ select: { id: true } });
   for (const s of studios) await computeReputation(s.id);
   await audit(req.user.id, 'jobs.recompute', 'System', 'scores+trending');

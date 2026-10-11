@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api, { ago, errMsg, money } from '../api';
 import { Alert, Spinner, Stat, useTitle } from '../components/ui';
 
-const TABS = [['overview', 'Overview'], ['games', 'Games'], ['verifications', 'Verifications'], ['campaigns', 'Campaigns'], ['reports', 'Reports'], ['refunds', 'Refunds'], ['disputes', 'Disputes'], ['transactions', 'Transactions'], ['users', 'Users'], ['security-logs', 'Security'], ['audit', 'Audit log']];
+const TABS = [['overview', 'Overview'], ['games', 'Games'], ['verifications', 'Verifications'], ['campaigns', 'Campaigns'], ['reports', 'Reports'], ['refunds', 'Refunds'], ['disputes', 'Disputes'], ['transactions', 'Transactions'], ['users', 'Users'], ['security-logs', 'Security'], ['audit', 'Audit log'], ['policies', 'Refund policies']];
 
 function Btn({ children, onClick, tone = 'ghost' }) { return <button onClick={onClick} className={`${tone === 'danger' ? 'btn-danger' : tone === 'ok' ? 'btn-mint' : 'btn-ghost'} !px-2.5 !py-1 !text-xs`}>{children}</button>; }
 
@@ -12,9 +12,21 @@ function Table({ cols, rows, empty = 'Nothing here.' }) {
   return <div className="card overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="border-b border-ink-600 text-xs uppercase tracking-wide text-slate-500"><tr>{cols.map((c) => <th key={c} className="px-4 py-3 font-medium">{c}</th>)}</tr></thead><tbody className="divide-y divide-ink-700">{rows.map((r, i) => <tr key={i} className="align-top">{r.map((c, j) => <td key={j} className="px-4 py-3 text-slate-300">{c}</td>)}</tr>)}</tbody></table></div>;
 }
 
+function PolicyEditor({ p, onSaved }) {
+  const [f, setF] = useState({ windowDays: p.windowDays, maxPlaytimeMinutes: p.maxPlaytimeMinutes ?? '', autoApprove: p.autoApprove, refundable: p.refundable, summary: p.summary });
+  const save = async () => { try { await api.put(`/admin/refund-policies/${p.scope}`, { ...f, windowDays: Number(f.windowDays), maxPlaytimeMinutes: f.maxPlaytimeMinutes === '' ? null : Number(f.maxPlaytimeMinutes) }); onSaved({ t: 'ok', m: `${p.scope} policy saved` }); } catch (e) { onSaved({ t: 'error', m: errMsg(e) }); } };
+  return (
+    <div className="card space-y-3 p-4"><div className="text-xs font-semibold uppercase tracking-wide text-brand-soft">{p.scope.replaceAll('_', ' ')}</div>
+      <div className="grid grid-cols-2 gap-3"><label><span className="label">Window (days)</span><input type="number" min="0" className="input" value={f.windowDays} onChange={(e) => setF({ ...f, windowDays: e.target.value })} /></label><label><span className="label">Max playtime (min)</span><input type="number" min="0" className="input" placeholder="none" value={f.maxPlaytimeMinutes} onChange={(e) => setF({ ...f, maxPlaytimeMinutes: e.target.value })} /></label></div>
+      <div className="flex gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" className="accent-[#8b7bff]" checked={f.refundable} onChange={(e) => setF({ ...f, refundable: e.target.checked })} />Refundable</label><label className="flex items-center gap-2"><input type="checkbox" className="accent-[#8b7bff]" checked={f.autoApprove} onChange={(e) => setF({ ...f, autoApprove: e.target.checked })} />Auto-approve when eligible</label></div>
+      <label><span className="label">Text shown to users before purchase</span><textarea rows={3} className="input" value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></label>
+      <button className="btn-primary !py-2" onClick={save}>Save policy</button></div>
+  );
+}
+
 export default function Admin() {
   useTitle('Admin'); const [tab, setTab] = useState('overview'); const [state, setState] = useState({ tab: null, data: null }); const [msg, setMsg] = useState(null);
-  const load = useCallback(async () => { try { const data = (await api.get(`/admin/${tab === 'overview' ? 'stats' : tab}`)).data; setState({ tab, data }); } catch (e) { setMsg({ t: 'error', m: errMsg(e) }); setState({ tab, data: {} }); } }, [tab]);
+  const load = useCallback(async () => { try { const data = (await api.get(tab === 'policies' ? '/policies/refund' : `/admin/${tab === 'overview' ? 'stats' : tab}`)).data; setState({ tab, data }); } catch (e) { setMsg({ t: 'error', m: errMsg(e) }); setState({ tab, data: {} }); } }, [tab]);
   useEffect(() => { load(); }, [load]);
   const act = async (path, label) => {
     const note = ['reject', 'suspend', 'cancel', 'deny', 'flag', 'action', 'dismiss', 'approve'].some((w) => path.includes(w)) ? window.prompt(`${label} — add a note (optional)`) : '';
@@ -27,6 +39,7 @@ export default function Admin() {
   const render = () => {
     if (!d) return <Spinner />;
     if (msg?.t === 'error' && !Object.keys(d).length) return null;
+    if (tab === 'policies') return <div className="grid gap-4 md:grid-cols-2">{d.policies.map((p) => <PolicyEditor key={p.scope} p={p} onSaved={(m) => { setMsg(m); load(); }} />)}</div>;
     if (tab === 'overview') return <div className="space-y-4"><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[['Users', d.users], ['Published games', d.games], ['Pending games', d.pendingGames], ['Active campaigns', d.activeCampaigns], ['Open reports', d.openReports], ['Pending verifications', d.pendingVerifications], ['Refunds to review', d.refundsToReview], ['Open disputes', d.openDisputes], ['Paid transactions', d.paidTransactions], ['Volume', money(d.volumeCents)], ['Est. commission', money(d.commissionCents)]].map(([l, v]) => <Stat key={l} label={l} value={v} />)}</div>
       <button className="btn-primary" onClick={async () => { try { const r = await api.post('/admin/jobs/recompute'); setMsg({ t: 'ok', m: `Scores, reputation and trending recomputed (${r.data.ranked} ranked).` }); } catch (e) { setMsg({ t: 'error', m: errMsg(e) }); } }}>Recompute scores & trending</button></div>;
     if (tab === 'games') return <Table cols={['Game', 'Studio', 'Status', 'Flags', 'Actions']} rows={d.games.map((g) => [<Link className="text-white hover:underline" to={`/games/${g.slug}`}>{g.title}</Link>, <>{g.studio.name} {g.studio.verification?.status === 'APPROVED' && <span className="text-mint">✓</span>}</>, g.status, <>{g._count.reports} reports{g.featured && ' · featured'}{g.sponsored && ' · sponsored'}{g.protectedBy && ' · protected'}</>, <div className="flex flex-wrap gap-1">{g.status === 'PENDING' && <>{A(`games/${g.id}/approve`, 'Approve', 'ok')}{A(`games/${g.id}/reject`, 'Reject', 'danger')}</>}{g.status === 'PUBLISHED' && <>{A(`games/${g.id}/suspend`, 'Suspend', 'danger')}{A(`games/${g.id}/${g.featured ? 'unfeature' : 'feature'}`, g.featured ? 'Unfeature' : 'Feature')}{A(`games/${g.id}/${g.protectedBy ? 'unprotect' : 'protect'}`, g.protectedBy ? 'Remove Protection' : 'Grant Protection')}{A(`games/${g.id}/${g.sponsored ? 'unsponsor' : 'sponsor'}`, g.sponsored ? 'Unsponsor' : 'Sponsor')}</>}{g.status === 'SUSPENDED' && A(`games/${g.id}/restore`, 'Restore')}</div>])} />;
