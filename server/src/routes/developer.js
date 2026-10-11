@@ -262,8 +262,7 @@ r.get('/dashboard', wrap(async (req, res) => {
     byDay.set(k, o);
   }
   const series = [...byDay.values()];
-  let wl = games.reduce((s, g) => s + g._count.wishlist, 0) - series.reduce((s, d) => s + d.wishlists, 0);
-  let fo = games.reduce((s, g) => s + g._count.follows, 0) - series.reduce((s, d) => s + d.follows, 0);
+  let wl = 0, fo = 0; // cumulative growth within the 30-day window
   for (const d of series) { wl += d.wishlists; fo += d.follows; d.wishlistTotal = wl; d.followersTotal = fo; }
   const sum = (f) => series.reduce((s, d) => s + d[f], 0);
   const sums = { visitors: sum('visitors'), players: sum('players'), wishlists: sum('wishlists'), follows: sum('follows'), backers: sum('backers'), purchases: sum('purchases') };

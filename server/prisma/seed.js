@@ -61,7 +61,6 @@ for (const d of G) {
     genres: d.g, tags: ['indie', d.g[0].toLowerCase()], platforms: d.stage === 'CONCEPT' ? ['Windows'] : ['Web', 'Windows', 'Linux'], stage: d.stage, progress: d.p, status: 'PUBLISHED', priceCents: d.price,
     estimatedRelease: d.est, releaseDate: d.released ? new Date(Date.now() - 90 * 864e5) : null, featured: !!d.featured, protectedBy: !!d.camp && st.st.slug !== 'nova-lantern', coverSeed: seedN++ * 7919,
     ageRating: d.g.includes('Horror') ? '16' : '12', studioId: st.st.id, lastUpdateAt: new Date(Date.now() - rnd(1, 20) * 864e5), createdAt: new Date(Date.now() - rnd(10, 150) * 864e5),
-    trailerUrl: d.featured ? 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' : null,
     requirements: { create: [{ tier: 'MIN', os: 'Windows 10', cpu: 'Intel i5-6400', gpu: 'GTX 960', ram: '8 GB', storage: '10 GB' }, { tier: 'REC', os: 'Windows 11', cpu: 'Intel i7-9700', gpu: 'RTX 2060', ram: '16 GB', storage: '10 GB SSD' }] },
     demos: d.demo ? { create: [{ kind: 'WEBGL', url: '/demos/orb-runner.html', version: '0.3' }] } : undefined,
     builds: { create: [{ version: '0.' + rnd(2, 9) + '.' + rnd(0, 9), platform: 'Windows', notes: 'Latest build' }] },

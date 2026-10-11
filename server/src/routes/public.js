@@ -182,4 +182,12 @@ r.get('/studios/:slug', wrap(async (req, res) => {
   });
 }));
 
+r.get('/community', wrap(async (_req, res) => {
+  const [updates, reviews] = await Promise.all([
+    prisma.gameUpdate.findMany({ where: { game: { status: 'PUBLISHED' } }, orderBy: { createdAt: 'desc' }, take: 15, include: { game: { select: { title: true, slug: true, coverSeed: true, coverUrl: true, studio: { select: { name: true, slug: true } } } } } }),
+    prisma.review.findMany({ where: { hidden: false, game: { status: 'PUBLISHED' } }, orderBy: { createdAt: 'desc' }, take: 12, include: { user: { select: { name: true } }, game: { select: { title: true, slug: true } } } }),
+  ]);
+  res.json({ updates, reviews: reviews.map((v) => ({ id: v.id, rating: v.rating, recommended: v.recommended, body: v.body, verified: v.verified, createdAt: v.createdAt, author: v.user.name, game: v.game })) });
+}));
+
 export default r;

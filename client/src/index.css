@@ -1,111 +1,29 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+:root { color-scheme: dark; }
+html { background: #07080c; }
+body { @apply bg-ink-950 text-slate-200 font-sans antialiased; padding-bottom: env(safe-area-inset-bottom); }
+h1, h2, h3, .font-display { font-family: 'Space Grotesk', system-ui, sans-serif; letter-spacing: -0.01em; }
+::selection { background: rgba(139, 123, 255, .4); }
+* { scrollbar-width: thin; scrollbar-color: #2e3548 transparent; }
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+@layer components {
+  .card { @apply bg-ink-800 border border-ink-600/60 rounded-2xl; }
+  .btn { @apply whitespace-nowrap inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand; }
+  .btn-primary { @apply btn bg-brand text-ink-950 hover:bg-brand-soft shadow-glow; }
+  .btn-ghost { @apply btn border border-ink-500 text-slate-200 hover:bg-ink-700; }
+  .btn-mint { @apply btn bg-mint text-ink-950 hover:brightness-110; }
+  .btn-danger { @apply btn bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25; }
+  .input { @apply w-full rounded-xl bg-ink-900 border border-ink-500 px-3.5 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30; }
+  .label { @apply block text-xs font-medium text-slate-400 mb-1.5; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border border-ink-500 px-2.5 py-1 text-xs text-slate-300; }
+  .chip-on { @apply border-brand bg-brand/15 text-brand-soft; }
+  .section-title { @apply font-display text-xl md:text-2xl font-semibold text-white; }
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } * { transition: none !important; } }
